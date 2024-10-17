@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  cat <<EOF
+  Usage: $0 [options]
+
+  Options:
+    --update   Update the README.md files
+    --check    Check the README.md files
+    -v | --verbose  Enable verbose mode
+EOF
+}
+
+# Function to set global variables
+globals() {
+  readonly TF_DOCS_VERSION="v0.19.0"
+  UPDATE=false
+  CHECK=false
+  VERBOSE=false
+}
+
+# Function to parse input flags
+parse_flags() {
+  while [[ "${#}" -gt 0 ]]; do
+    case $1 in
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      --update)
+        UPDATE=true
+        ;;
+      --check)
+        CHECK=true
+        ;;
+      -v | --verbose)
+        VERBOSE=true
+        ;;
+      *)
+        echo "Unknown option: ${1}"
+        usage
+        exit 1
+        ;;
+    esac
+    shift
+  done
+
+  # Check if either update or check is set, if not print usage
+  if [[ "${UPDATE}" == false && "${CHECK}" == false ]]; then
+    usage
+    exit 1
+  fi
+
+
+  log "Update: ${UPDATE}"
+  log "Check: ${CHECK}"
+  log "Verbose: ${VERBOSE}"
+}
+
+log() {
+  if [[ "${VERBOSE}" == true ]]; then
+    echo "${@}"
+  fi
+}
+
+# Function to check if terraform-docs is available and is the correct version
+check_terraform_docs() {
+  if ! command -v terraform-docs &> /dev/null; then
+    echo "terraform-docs is missing from path"
+    echo "Please install terraform-docs: brew install terraform-docs"
+    exit 1
+  fi
+
+  local installed_version
+  installed_version=$(terraform-docs --version | awk '{print $3}')
+
+  if [[ "${installed_version}" != "${TF_DOCS_VERSION}" ]]; then
+    echo "terraform-docs version mismatch: expected ${TF_DOCS_VERSION}, got ${installed_version}"
+    exit 1
+  fi
+
+  log "terraform-docs version: ${installed_version}"
+}
+
+# Function to get all directories with terraform files, output as newline separated array
+tf_dirs() {
+  local -a paths
+  mapfile -t paths < <(find . -type f -name '*.tf' -print0 | xargs --null --max-args 1 dirname | sort --unique)
+  printf '%s\n' "${paths[@]}"
+}
+
+update() {
+  if [[ "${UPDATE}" == true ]]; then
+    log "Directories to update:"
+    log "$(tf_dirs)"
+    tf_dirs | xargs --max-procs 5 -I % terraform-docs markdown table % --output-file README.md
+  fi
+}
+
+check() {
+  if [[ "${CHECK}" == true ]]; then
+    log "Checking directories: $(tf_dirs)"
+    tf_dirs | xargs --max-procs 5 -I % terraform-docs markdown table % --output-check --output-file README.md
+  fi
+}
+
+main() {
+  globals
+  parse_flags "${@}"
+  check_terraform_docs
+  update
+  check
+}
+
+main "${@}"
