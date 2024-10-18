@@ -85,25 +85,27 @@ Finally, we can generate the shortened list of words and join them with the sepa
 */
 
 variable "name_parts" {
-  type    = list(string)
+  description = "List of strings to shorten and join together with the separator to form the final string. The order of the strings will be preserved."
+  type        = list(string)
 }
 
-# how long the string can be
+
 variable "max_length" {
-  type    = number
-  default = 12
+  default     = 12
+  description = "Maximum length of the final string"
+  type        = number
 }
 
-# Minimum size of that a word can be in the final string. If a word is shorter than this, it will not be shortened.
 variable "minimum_word_size" {
-  type    = string
-  default = "3"
+  default     = "3"
+  description = "Minimum size of a word in the final string. If a word is shorter than this, it will not be shortened."
+  type        = string
 }
 
-# Separator to use between words
 variable "separator" {
-  type    = string
-  default = "-"
+  default     = "-"
+  description = "Separator to use between words. For no separator, use an empty string."
+  type        = string
 }
 
 locals {
@@ -137,7 +139,8 @@ locals {
 }
 
 output "name" {
-  value = local.shortened_name
+  description = "Final shortened name"
+  value       = local.shortened_name
 
   precondition {
     condition     = local.can_shorten
@@ -150,6 +153,7 @@ output "name" {
 }
 
 output "debug" {
+  description = "Debug output"
   value = {
     name_parts          = var.name_parts,
     range               = local.range,
