@@ -1,0 +1,21 @@
+  name: Checks
+  on:
+    pull_request:
+      branches: [main]
+    push:
+      branches: [main]
+  jobs:
+    docs:
+      name: Docs Check
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+
+        - name: Terraform Docs Install
+          run: |
+            make docs-install
+
+        - name: Terraform Docs Check
+          run: |
+            make docs-check

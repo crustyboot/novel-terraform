@@ -9,6 +9,7 @@ usage() {
   Options:
     --update   Update the README.md files
     --check    Check the README.md files
+    --install  Install binary release of terraform-docs
     -v | --verbose  Enable verbose mode
 EOF
 }
@@ -18,6 +19,7 @@ globals() {
   readonly TF_DOCS_VERSION="v0.19.0"
   UPDATE=false
   CHECK=false
+  INSTALL=false
   VERBOSE=false
 }
 
@@ -28,6 +30,9 @@ parse_flags() {
       -h | --help)
         usage
         exit 0
+        ;;
+      --install)
+        INSTALL=true
         ;;
       --update)
         UPDATE=true
@@ -48,14 +53,14 @@ parse_flags() {
   done
 
   # Check if either update or check is set, if not print usage
-  if [[ "${UPDATE}" == false && "${CHECK}" == false ]]; then
+  if [[ "${UPDATE}" == false && "${CHECK}" == false && "${INSTALL}" ==  false ]]; then
     usage
     exit 1
   fi
 
-
   log "Update: ${UPDATE}"
   log "Check: ${CHECK}"
+  log "Install: ${INSTALL}"
   log "Verbose: ${VERBOSE}"
 }
 
@@ -69,7 +74,7 @@ log() {
 check_terraform_docs() {
   if ! command -v terraform-docs &> /dev/null; then
     echo "terraform-docs is missing from path"
-    echo "Please install terraform-docs: brew install terraform-docs"
+    echo "Please install terraform-docs"
     exit 1
   fi
 
@@ -82,6 +87,41 @@ check_terraform_docs() {
   fi
 
   log "terraform-docs version: ${installed_version}"
+}
+
+tf_docs_binary_install() {
+  if [[ "${INSTALL}" == true ]]; then
+    trap 'rm -f /tmp/terraform-docs.tar.gz /tmp/terraform-docs /tmp/README.md; echo "Removed temp files"' EXIT
+
+    echo "Installing terraform-docs binary"
+
+    local -r tf_docs_uri="https://github.com/terraform-docs/terraform-docs/releases/download/${TF_DOCS_VERSION}/terraform-docs-${TF_DOCS_VERSION}-$(system_info).tar.gz"
+    local -r tf_docs_install_dir="/usr/local/bin/terraform-docs"
+
+    log "Downloading terraform-docs binary from ${tf_docs_uri}"
+    curl --silent --location --output /tmp/terraform-docs.tar.gz "${tf_docs_uri}"
+
+    log "Extracting terraform-docs binary"
+    tar --extract -z --file=/tmp/terraform-docs.tar.gz --directory=/tmp
+    chmod +x /tmp/terraform-docs
+
+    log "Moving terraform-docs binary to ${tf_docs_install_dir}"
+    mv /tmp/terraform-docs "${tf_docs_install_dir}"
+
+    echo "terraform-docs install finished"
+  fi
+}
+
+system_info() {
+  local -r os=$(uname)
+  local -r arch=$(
+    if [[ $(uname -m) == "x86_64" ]]
+      then echo "amd64"
+    else eval 'uname -m'
+    fi
+  )
+
+  echo "${os}-${arch}"
 }
 
 # Function to get all directories with terraform files, output as newline separated array
@@ -109,6 +149,7 @@ check() {
 main() {
   globals
   parse_flags "${@}"
+  tf_docs_binary_install
   check_terraform_docs
   update
   check
